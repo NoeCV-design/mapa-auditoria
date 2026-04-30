@@ -8,6 +8,11 @@ import { Client } from "@notionhq/client";
 import { AuditWebsite, AuditCategory, AuditPriority, AuditStatus } from "@/types/audit";
 import { isAuthenticated } from "@/lib/auth";
 
+// Dynamic import that bypasses webpack/turbopack static analysis.
+// Used for local-only scripts (Playwright, Lighthouse, Sharp) that must not
+// be bundled into the Vercel serverless function.
+const dynImport = new Function("p", "return import(p)") as (p: string) => Promise<unknown>;
+
 const siteSlug: Record<AuditWebsite, string> = {
   MAPA: "mapa",
   Alimentos: "alimentos",
@@ -85,8 +90,11 @@ export async function createIssue(formData: FormData) {
     await fs.writeFile(path.join(outDir, filename), buffer);
     screenshotUrl = "/screenshots/" + filename;
   } else {
-    const { captureScreenshot } = await import("../../scripts/screenshot");
-    const shot = await captureScreenshot(pageUrl, website, outDir, captureRes);
+    if (process.env.VERCEL) {
+      throw new Error("La captura automática solo está disponible en local. Sube una captura manualmente.");
+    }
+    const screenshot = await dynImport("../../scripts/screenshot") as typeof import("../../scripts/screenshot");
+    const shot = await screenshot.captureScreenshot(pageUrl, website, outDir, captureRes);
     screenshotUrl = "/screenshots/" + path.basename(shot.path);
   }
 
@@ -135,22 +143,38 @@ export async function auditUrl(
   }
 
   const [
-    { captureScreenshot, cropScreenshot },
-    { analyzeDualScreenshots, analyzeFunctionalReport, analyzeSourceCode },
-    { runFunctionalAudit },
-    { axeToIssues },
-    { runLighthouseAudit },
-    { lighthouseToIssues },
-    { sendToNotion },
-  ] = await Promise.all([
-    import("../../scripts/screenshot"),
-    import("../../scripts/analyze"),
-    import("../../scripts/functional-audit"),
-    import("../../scripts/axe"),
-    import("../../scripts/lighthouse-audit"),
-    import("../../scripts/lighthouse"),
-    import("../../scripts/notion"),
-  ]);
+    screenshotMod,
+    analyzeMod,
+    functionalAuditMod,
+    axeMod,
+    lighthouseAuditMod,
+    lighthouseMod,
+    notionMod,
+  ] = (await Promise.all([
+    dynImport("../../scripts/screenshot"),
+    dynImport("../../scripts/analyze"),
+    dynImport("../../scripts/functional-audit"),
+    dynImport("../../scripts/axe"),
+    dynImport("../../scripts/lighthouse-audit"),
+    dynImport("../../scripts/lighthouse"),
+    dynImport("../../scripts/notion"),
+  ])) as [
+    typeof import("../../scripts/screenshot"),
+    typeof import("../../scripts/analyze"),
+    typeof import("../../scripts/functional-audit"),
+    typeof import("../../scripts/axe"),
+    typeof import("../../scripts/lighthouse-audit"),
+    typeof import("../../scripts/lighthouse"),
+    typeof import("../../scripts/notion"),
+  ];
+
+  const { captureScreenshot, cropScreenshot } = screenshotMod;
+  const { analyzeDualScreenshots, analyzeFunctionalReport, analyzeSourceCode } = analyzeMod;
+  const { runFunctionalAudit } = functionalAuditMod;
+  const { axeToIssues } = axeMod;
+  const { runLighthouseAudit } = lighthouseAuditMod;
+  const { lighthouseToIssues } = lighthouseMod;
+  const { sendToNotion } = notionMod;
 
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId) return "NOTION_DATABASE_ID no configurado.";
