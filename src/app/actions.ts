@@ -136,6 +136,10 @@ export async function auditUrl(
   _prevState: string | null,
   formData: FormData
 ): Promise<string | null> {
+  if (process.env.VERCEL) {
+    return "La auditoría automática solo está disponible en local. Usa el script run-audit.ts desde tu máquina.";
+  }
+
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId) return "NOTION_DATABASE_ID no configurado.";
 
