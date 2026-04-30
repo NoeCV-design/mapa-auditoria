@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Plus, ScanSearch } from "lucide-react";
@@ -78,7 +79,9 @@ export default async function DashboardPage({
         )}
       </PageHeader>
       <div className="flex-1 p-6">
-        <IssuesList issues={issues} site={site} />
+        <Suspense>
+          <IssuesList issues={issues} site={site} />
+        </Suspense>
       </div>
     </div>
   );
