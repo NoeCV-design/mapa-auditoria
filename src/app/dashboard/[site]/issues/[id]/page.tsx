@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import path from "node:path";
-import fs from "node:fs/promises";
 import {
   ArrowLeft,
   ExternalLink,
@@ -16,22 +14,6 @@ import { fetchIssues } from "@/lib/notion";
 import { isAuthenticated } from "@/lib/auth";
 import { IssueActions } from "@/components/issue-actions";
 import { AuditCategory, AuditPriority, AuditSource, AuditWebsite } from "@/types/audit";
-
-async function screenshotToDataUrl(screenshotPath: string | null | undefined): Promise<string | null> {
-  if (!screenshotPath) return null;
-  try {
-    // screenshotPath is like "/screenshots/filename.png"
-    const filename = path.basename(screenshotPath);
-    const filePath = path.join(process.cwd(), "public", "screenshots", filename);
-    const buf = await fs.readFile(filePath);
-    const ext = path.extname(filename).toLowerCase();
-    const mime = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch (err) {
-    console.error("[screenshotToDataUrl] Failed:", screenshotPath, (err as Error).message);
-    return null;
-  }
-}
 
 const SITES: Record<string, { website: AuditWebsite; title: string }> = {
   mapa: { website: "MAPA", title: "MAPA" },
@@ -103,9 +85,6 @@ export default async function IssueDetailPage({
   const issue = issues.find((i) => i.id === id);
   if (!issue) notFound();
 
-  // Leer el screenshot del disco y convertirlo a data URL
-  const screenshotDataUrl = await screenshotToDataUrl(issue.screenshot);
-
   return (
     <div className="flex flex-col flex-1">
       {/* Header */}
@@ -125,10 +104,10 @@ export default async function IssueDetailPage({
 
           {/* Columna izquierda — captura de pantalla */}
           <div className="rounded-lg border border-border overflow-hidden bg-muted aspect-[390/844] flex items-center justify-center sticky top-6">
-            {screenshotDataUrl ? (
+            {issue.screenshot ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={screenshotDataUrl}
+                src={issue.screenshot}
                 alt={issue.title}
                 className="w-full h-full object-cover"
               />
