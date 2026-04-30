@@ -109,55 +109,21 @@ function ResolutionPicker() {
   );
 }
 
-type CaptureMode = "auto" | "upload";
-
 function ScreenshotPicker() {
-  const [mode, setMode] = useState<CaptureMode>("auto");
   const [fileName, setFileName] = useState<string | null>(null);
 
   return (
     <div className="space-y-2">
-      <div className="inline-flex rounded-lg border border-border p-0.5 text-xs">
-        <button
-          type="button"
-          onClick={() => setMode("auto")}
-          className={cn(
-            "px-3 py-1 rounded-md transition-colors",
-            mode === "auto" ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Capturar desde URL
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("upload")}
-          className={cn(
-            "px-3 py-1 rounded-md transition-colors",
-            mode === "upload" ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Subir archivo
-        </button>
-      </div>
-
-      {mode === "auto" ? (
-        <p className="text-xs text-muted-foreground">
-          Se capturará automáticamente desde la URL indicada (viewport iPhone 13).
-        </p>
-      ) : (
-        <>
-          <Input
-            name="screenshotFile"
-            type="file"
-            accept="image/png,image/jpeg"
-            className="h-9 text-sm file:mr-3 file:text-xs file:text-muted-foreground"
-            required
-            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
-          />
-          {fileName && (
-            <p className="text-xs text-muted-foreground truncate">Archivo: {fileName}</p>
-          )}
-        </>
+      <Input
+        name="screenshotFile"
+        type="file"
+        accept="image/png,image/jpeg"
+        className="h-9 text-sm file:mr-3 file:text-xs file:text-muted-foreground"
+        required
+        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+      />
+      {fileName && (
+        <p className="text-xs text-muted-foreground truncate">Archivo: {fileName}</p>
       )}
     </div>
   );
@@ -281,7 +247,7 @@ export function IssueForm({ defaultWebsite }: { defaultWebsite?: AuditWebsite })
       </Field>
 
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Capturando screenshot y guardando…" : "Añadir incidencia"}
+        {pending ? "Guardando…" : "Añadir incidencia"}
       </Button>
     </form>
   );
