@@ -19,6 +19,7 @@ const categoryStyles: Record<AuditCategory, string> = {
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
   Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
   Functional: "text-rose-600 border-rose-200 bg-rose-50",
+  Performance: "text-orange-600 border-orange-200 bg-orange-50",
 };
 
 const categoryLabels: Record<AuditCategory, string> = {
@@ -26,6 +27,7 @@ const categoryLabels: Record<AuditCategory, string> = {
   UI: "UI",
   Accessibility: "Accesibilidad",
   Functional: "Funcional",
+  Performance: "Rendimiento",
 };
 
 const priorityStyles: Record<AuditPriority, string> = {

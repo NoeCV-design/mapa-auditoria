@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { AuditIssue, AuditCategory, AuditPriority, AuditResolution, AuditSource, AuditStatus, AuditWebsite } from "@/types/audit";
 
-const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accessibility", "Functional"];
+const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accessibility", "Functional", "Performance"];
 const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
 const RESOLUTIONS: AuditResolution[] = ["390x844", "414x896", "ambas"];
 
@@ -43,6 +43,7 @@ const categoryStyles: Record<AuditCategory, string> = {
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
   Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
   Functional: "text-rose-600 border-rose-200 bg-rose-50",
+  Performance: "text-orange-600 border-orange-200 bg-orange-50",
 };
 
 const priorityStyles: Record<AuditPriority, string> = {
@@ -64,6 +65,7 @@ const categoryLabels: Record<AuditCategory, string> = {
   UI: "UI",
   Accessibility: "Accesibilidad",
   Functional: "Funcional",
+  Performance: "Rendimiento",
 };
 
 const statusLabels: Record<AuditStatus, string> = {
