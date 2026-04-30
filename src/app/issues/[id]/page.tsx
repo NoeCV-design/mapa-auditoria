@@ -12,6 +12,7 @@ const priorityStyles: Record<AuditPriority, string> = {
   low: "text-muted-foreground border-border",
   medium: "text-amber-600 border-amber-200 bg-amber-50",
   high: "text-red-600 border-red-200 bg-red-50",
+  critical: "text-purple-700 border-purple-300 bg-purple-50",
 };
 
 const statusStyles: Record<AuditStatus, string> = {

@@ -27,14 +27,16 @@ const CATEGORIES: AuditCategory[] = [
   "UI",
   "Accessibility",
   "Functional",
+  "Performance",
 ];
-const PRIORITIES: AuditPriority[] = ["low", "medium", "high"];
+const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
 const STATUSES: AuditStatus[] = ["todo", "in_progress", "done"];
 
 const priorityStyles: Record<AuditPriority, string> = {
   low: "text-muted-foreground border-border",
   medium: "text-amber-600 border-amber-200 bg-amber-50",
   high: "text-red-600 border-red-200 bg-red-50",
+  critical: "text-purple-700 border-purple-300 bg-purple-50",
 };
 
 const statusStyles: Record<AuditStatus, string> = {
@@ -54,6 +56,7 @@ const categoryStyles: Record<AuditCategory, string> = {
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
   Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
   Functional: "text-rose-600 border-rose-200 bg-rose-50",
+  Performance: "text-orange-600 border-orange-200 bg-orange-50",
 };
 
 const categoryLabels: Record<AuditCategory, string> = {
@@ -61,6 +64,7 @@ const categoryLabels: Record<AuditCategory, string> = {
   UI: "UI",
   Accessibility: "Accesibilidad",
   Functional: "Funcional",
+  Performance: "Rendimiento",
 };
 
 type FilterAll = "all";
