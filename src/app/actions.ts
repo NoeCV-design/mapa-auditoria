@@ -7,13 +7,6 @@ import fs from "node:fs/promises";
 import { Client } from "@notionhq/client";
 import { AuditWebsite, AuditCategory, AuditPriority, AuditStatus } from "@/types/audit";
 import { isAuthenticated } from "@/lib/auth";
-import { captureScreenshot, cropScreenshot } from "../../scripts/screenshot";
-import { analyzeDualScreenshots, analyzeFunctionalReport, analyzeSourceCode } from "../../scripts/analyze";
-import { runFunctionalAudit } from "../../scripts/functional-audit";
-import { axeToIssues } from "../../scripts/axe";
-import { runLighthouseAudit } from "../../scripts/lighthouse-audit";
-import { lighthouseToIssues } from "../../scripts/lighthouse";
-import { sendToNotion } from "../../scripts/notion";
 
 const siteSlug: Record<AuditWebsite, string> = {
   MAPA: "mapa",
@@ -92,6 +85,7 @@ export async function createIssue(formData: FormData) {
     await fs.writeFile(path.join(outDir, filename), buffer);
     screenshotUrl = "/screenshots/" + filename;
   } else {
+    const { captureScreenshot } = await import("../../scripts/screenshot");
     const shot = await captureScreenshot(pageUrl, website, outDir, captureRes);
     screenshotUrl = "/screenshots/" + path.basename(shot.path);
   }
@@ -139,6 +133,24 @@ export async function auditUrl(
   if (process.env.VERCEL) {
     return "La auditoría automática solo está disponible en local. Usa el script run-audit.ts desde tu máquina.";
   }
+
+  const [
+    { captureScreenshot, cropScreenshot },
+    { analyzeDualScreenshots, analyzeFunctionalReport, analyzeSourceCode },
+    { runFunctionalAudit },
+    { axeToIssues },
+    { runLighthouseAudit },
+    { lighthouseToIssues },
+    { sendToNotion },
+  ] = await Promise.all([
+    import("../../scripts/screenshot"),
+    import("../../scripts/analyze"),
+    import("../../scripts/functional-audit"),
+    import("../../scripts/axe"),
+    import("../../scripts/lighthouse-audit"),
+    import("../../scripts/lighthouse"),
+    import("../../scripts/notion"),
+  ]);
 
   const databaseId = process.env.NOTION_DATABASE_ID;
   if (!databaseId) return "NOTION_DATABASE_ID no configurado.";
