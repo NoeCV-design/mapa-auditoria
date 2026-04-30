@@ -1,0 +1,122 @@
+import "dotenv/config";
+import path from "node:path";
+import { captureScreenshot, cropScreenshot } from "./screenshot";
+import { analyzeScreenshot, analyzeSourceCode } from "./analyze";
+import { runFunctionalAudit } from "./functional-audit";
+import { axeToIssues } from "./axe";
+import { runLighthouseAudit } from "./lighthouse-audit";
+import { lighthouseToIssues } from "./lighthouse";
+import { sendToNotion, getNextIssueNum } from "./notion";
+import { AuditIssue, AuditWebsite } from "../src/types/audit";
+
+const WEBSITES: AuditWebsite[] = ["MAPA", "Alimentos", "Caminos"];
+
+async function main() {
+  const url = process.argv[2];
+  const website = process.argv[3] as AuditWebsite | undefined;
+  if (!url || !website || !WEBSITES.includes(website)) {
+    console.error(`Usage: tsx scripts/run-audit.ts <url> <website>`);
+    console.error(`  website: ${WEBSITES.join(" | ")}`);
+    process.exit(1);
+  }
+
+  const databaseId = process.env.NOTION_DATABASE_ID;
+  const skipNotion = !databaseId;
+
+  const outDir = path.join(process.cwd(), "public", "screenshots");
+
+  // Obtener el siguiente número correlativo desde Notion (o 1 si no hay BD)
+  let idx = databaseId
+    ? await getNextIssueNum({ databaseId })
+    : 1;
+
+  // Crop helper — mirrors the cropOrFull pattern from actions.ts
+  async function cropOrFull(sourcePath: string, yPosition: number, id: string): Promise<string> {
+    const cropFilename = `${website}-390x844-crop-${id}.png`;
+    const cropPath = path.join(outDir, cropFilename);
+    try {
+      await cropScreenshot(sourcePath, yPosition, "390x844", cropPath);
+      return "/screenshots/" + cropFilename;
+    } catch {
+      return "/screenshots/" + path.basename(sourcePath);
+    }
+  }
+
+  console.log(`→ Capturing screenshot + running axe + Lighthouse in parallel`);
+  const [shot, functionalAudit, lighthouseReport] = await Promise.all([
+    captureScreenshot(url, website, outDir),
+    runFunctionalAudit(url),
+    runLighthouseAudit(url).catch((err) => {
+      console.error("  ✗ Lighthouse failed:", (err as Error).message);
+      return null;
+    }),
+  ]);
+  console.log(`  ✓ Saved ${shot.path}`);
+  console.log(`  ✓ Axe: ${functionalAudit.axe.violations.length} violation(s)`);
+  if (lighthouseReport) {
+    console.log(`  ✓ Lighthouse: score ${lighthouseReport.score}, ${lighthouseReport.failedAudits.length} failed audit(s)`);
+  }
+
+  console.log(`→ Analyzing with AI`);
+  const [detected, sourceIssues] = await Promise.all([
+    analyzeScreenshot(shot.path, website),
+    analyzeSourceCode(functionalAudit.structural, website),
+  ]);
+
+  const issues: AuditIssue[] = await Promise.all(
+    detected.map(async (d) => {
+      const id = `UX-${String(idx++).padStart(3, "0")}`;
+      const screenshot = await cropOrFull(shot.path, d.yPosition, id);
+      return { ...d, id, website, url, screenshot, resolution: "390x844" as const, status: "todo" as const, source: "visual" as const };
+    }),
+  );
+  console.log(`  ✓ Found ${issues.length} Claude issue(s)`);
+
+  const axeIssues: AuditIssue[] = await Promise.all(
+    axeToIssues(functionalAudit.axe).map(async (d) => {
+      const id = `UX-${String(idx++).padStart(3, "0")}`;
+      const screenshot = await cropOrFull(shot.path, d.yPosition, id);
+      return { ...d, id, website, url, screenshot, resolution: "ambas" as const, status: "todo" as const, source: "axe" as const };
+    }),
+  );
+  console.log(`  ✓ Found ${axeIssues.length} axe issue(s)`);
+
+  const codeIssues: AuditIssue[] = await Promise.all(
+    sourceIssues.map(async (d) => {
+      const id = `UX-${String(idx++).padStart(3, "0")}`;
+      const screenshot = await cropOrFull(shot.path, d.yPosition, id);
+      return { ...d, id, website, url, screenshot, resolution: "ambas" as const, status: "todo" as const, source: "structural" as const };
+    }),
+  );
+  console.log(`  ✓ Found ${codeIssues.length} source-code issue(s)`);
+
+  const perfIssuesRaw = lighthouseReport ? lighthouseToIssues(lighthouseReport) : [];
+  const perfIssues: AuditIssue[] = await Promise.all(
+    perfIssuesRaw.map(async (d) => {
+      const id = `UX-${String(idx++).padStart(3, "0")}`;
+      const screenshot = await cropOrFull(shot.path, d.yPosition, id);
+      return { ...d, id, website, url, screenshot, resolution: "ambas" as const, status: "todo" as const, source: "lighthouse" as const };
+    }),
+  );
+  console.log(`  ✓ Found ${perfIssues.length} performance issue(s)`);
+
+  const allIssues = [...issues, ...axeIssues, ...codeIssues, ...perfIssues];
+  console.log(`  ✓ Total: ${allIssues.length} issue(s)`);
+  for (const issue of allIssues) {
+    console.log(`    · ${issue.id} [${issue.priority}] ${issue.title}`);
+  }
+
+  if (skipNotion) {
+    console.log(`→ NOTION_DATABASE_ID not set — skipping Notion sync`);
+    return;
+  }
+
+  console.log(`→ Sending to Notion`);
+  await sendToNotion(allIssues, { databaseId });
+  console.log(`  ✓ Done`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
