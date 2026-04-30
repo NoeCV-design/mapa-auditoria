@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
@@ -20,7 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AuditIssue, AuditCategory, AuditPriority, AuditResolution, AuditSource, AuditStatus, AuditWebsite } from "@/types/audit";
+import { AuditIssue, AuditCategory, AuditPriority, AuditResolution, AuditStatus, AuditWebsite } from "@/types/audit";
+import { updateStatus } from "@/app/actions";
 
 const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accessibility", "Functional", "Performance"];
 const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
@@ -86,22 +87,10 @@ const resolutionStyles: Record<AuditResolution, string> = {
   "ambas": "text-gray-600 border-gray-200 bg-gray-50",
 };
 
-const sourceLabels: Record<AuditSource, string> = {
-  visual: "Visual AI",
-  functional: "Funcional",
-  structural: "Estructural",
-  axe: "Axe",
-  lighthouse: "Lighthouse",
-  manual: "Manual",
-};
-
-const sourceStyles: Record<AuditSource, string> = {
-  visual: "text-fuchsia-600 border-fuchsia-200 bg-fuchsia-50",
-  functional: "text-blue-600 border-blue-200 bg-blue-50",
-  structural: "text-emerald-600 border-emerald-200 bg-emerald-50",
-  axe: "text-orange-600 border-orange-200 bg-orange-50",
-  lighthouse: "text-red-600 border-red-200 bg-red-50",
-  manual: "text-gray-600 border-gray-200 bg-gray-50",
+const statusStyles: Record<AuditStatus, string> = {
+  todo: "text-muted-foreground border-border",
+  in_progress: "text-amber-600 border-amber-200 bg-amber-50",
+  done: "text-green-600 border-green-200 bg-green-50",
 };
 
 type FilterAll = "all";
@@ -117,7 +106,6 @@ function downloadCSV(issues: AuditIssue[], site: string) {
     "Prioridad",
     "Estado",
     "Resolución",
-    "Origen",
     "Problema",
     "Impacto",
     "Solución",
@@ -133,7 +121,6 @@ function downloadCSV(issues: AuditIssue[], site: string) {
     escape(priorityLabels[i.priority] ?? i.priority),
     escape(statusLabels[i.status] ?? i.status),
     escape(i.resolution ? resolutionLabels[i.resolution] ?? i.resolution : ""),
-    escape(i.source ? sourceLabels[i.source] ?? i.source : ""),
     escape(i.problem ?? ""),
     escape(i.impact ?? ""),
     escape(i.solution ?? ""),
@@ -164,10 +151,11 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
   const category = (searchParams.get("category") as AuditCategory | FilterAll | null) ?? "all";
   const priority = (searchParams.get("priority") as AuditPriority | FilterAll | null) ?? "all";
   const resolution = (searchParams.get("resolution") as AuditResolution | FilterAll | null) ?? "all";
-  const source = (searchParams.get("source") as AuditSource | FilterAll | null) ?? "all";
   const [urlFilter, setUrlFilter] = useState(searchParams.get("url") ?? "");
   const sortParam = searchParams.get("sort");
   const sortDir: SortDir = sortParam === "asc" || sortParam === "desc" ? sortParam : null;
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, AuditStatus>>({});
+  const [, startTransition] = useTransition();
 
   function updateParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -186,13 +174,20 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
         (resolution === "all" ||
           i.resolution === resolution ||
           i.resolution === "ambas") &&
-        (source === "all" || i.source === source) &&
         (!needle || i.url.toLowerCase().includes(needle))
     );
     if (!sortDir) return base;
     const sorted = [...base].sort((a, b) => a.id.localeCompare(b.id, "es", { numeric: true }));
     return sortDir === "asc" ? sorted : sorted.reverse();
-  }, [issues, category, priority, resolution, source, urlFilter, sortDir]);
+  }, [issues, category, priority, resolution, urlFilter, sortDir]);
+
+  function handleStatusChange(issue: AuditIssue, newStatus: AuditStatus) {
+    if (!issue.pageId) return;
+    setOptimisticStatus((prev) => ({ ...prev, [issue.id]: newStatus }));
+    startTransition(async () => {
+      await updateStatus(issue.pageId!, newStatus);
+    });
+  }
 
   function toggleIdSort() {
     const next: SortDir = sortDir === null ? "asc" : sortDir === "asc" ? "desc" : null;
@@ -300,7 +295,7 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
                 <TableHead className="w-36 text-xs font-medium">Categoría</TableHead>
                 <TableHead className="w-28 text-xs font-medium">Prioridad</TableHead>
                 <TableHead className="w-28 text-xs font-medium">Resolución</TableHead>
-                <TableHead className="w-28 text-xs font-medium">Origen</TableHead>
+                <TableHead className="w-36 text-xs font-medium">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -357,13 +352,33 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {issue.source ? (
-                      <Badge variant="outline" className={`text-xs font-medium ${sourceStyles[issue.source]}`}>
-                        {sourceLabels[issue.source]}
-                      </Badge>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {issue.pageId ? (
+                      <Select
+                        value={optimisticStatus[issue.id] ?? issue.status}
+                        onValueChange={(v) => handleStatusChange(issue, v as AuditStatus)}
+                      >
+                        <SelectTrigger className="h-7 w-32 text-xs border-0 shadow-none px-2 focus:ring-0">
+                          <SelectValue>
+                            <Badge variant="outline" className={`text-xs font-medium ${statusStyles[optimisticStatus[issue.id] ?? issue.status]}`}>
+                              {statusLabels[optimisticStatus[issue.id] ?? issue.status]}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["todo", "in_progress", "done"] as AuditStatus[]).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              <Badge variant="outline" className={`text-xs font-medium ${statusStyles[s]}`}>
+                                {statusLabels[s]}
+                              </Badge>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <Badge variant="outline" className={`text-xs font-medium ${statusStyles[issue.status]}`}>
+                        {statusLabels[issue.status]}
+                      </Badge>
                     )}
                   </TableCell>
                 </TableRow>

@@ -182,6 +182,27 @@ export async function updateIssue(
   return null;
 }
 
+export async function updateStatus(pageId: string, status: AuditStatus): Promise<string | null> {
+  const token = process.env.NOTION_TOKEN;
+  if (!token) return "NOTION_TOKEN no configurado";
+  if (!pageId) return "ID de página no válido";
+
+  try {
+    const notion = new Client({ auth: token });
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        Status: { select: { name: status } },
+      },
+    });
+  } catch (err) {
+    return `Error al actualizar: ${(err as Error).message}`;
+  }
+
+  revalidateTag("notion-issues", "max");
+  return null;
+}
+
 export async function deleteIssue(formData: FormData): Promise<void> {
   if (!(await isAuthenticated())) throw new Error("No autorizado");
 
