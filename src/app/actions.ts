@@ -70,7 +70,8 @@ export async function createIssue(formData: FormData) {
 
   const ext = uploaded.type === "image/jpeg" ? "jpg" : "png";
   const filename = `${website}-upload-${Date.now()}.${ext}`;
-  const { url: screenshotUrl } = await put(filename, uploaded, { access: "public" });
+  const { url: blobUrl } = await put(filename, uploaded, { access: "private" });
+  const screenshotUrl = `/api/blob?url=${encodeURIComponent(blobUrl)}`;
 
   const notion = new Client({ auth: token });
 
@@ -143,8 +144,8 @@ export async function updateIssue(
     const website = (formData.get("website") as string) || "unknown";
     const ext = uploaded.type === "image/jpeg" ? "jpg" : "png";
     const filename = `${website}-upload-${Date.now()}.${ext}`;
-    const { url } = await put(filename, uploaded, { access: "public" });
-    screenshotUrl = url;
+    const { url: blobUrl } = await put(filename, uploaded, { access: "private" });
+    screenshotUrl = `/api/blob?url=${encodeURIComponent(blobUrl)}`;
   }
 
   try {
