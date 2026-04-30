@@ -2,8 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidateTag } from "next/cache";
-import path from "node:path";
-import fs from "node:fs/promises";
+import { put } from "@vercel/blob";
 import { Client } from "@notionhq/client";
 import { AuditWebsite, AuditCategory, AuditPriority, AuditStatus } from "@/types/audit";
 import { isAuthenticated } from "@/lib/auth";
@@ -61,9 +60,6 @@ export async function createIssue(formData: FormData) {
   const impact = (formData.get("impact") as string).trim();
   const resolution = (formData.get("resolution") as string || "390x844") as import("@/types/audit").AuditResolution;
 
-  const outDir = path.join(process.cwd(), "public", "screenshots");
-  await fs.mkdir(outDir, { recursive: true });
-
   const uploaded = formData.get("screenshotFile");
   const hasUpload =
     uploaded instanceof File && uploaded.size > 0 && uploaded.type.startsWith("image/");
@@ -74,9 +70,7 @@ export async function createIssue(formData: FormData) {
 
   const ext = uploaded.type === "image/jpeg" ? "jpg" : "png";
   const filename = `${website}-upload-${Date.now()}.${ext}`;
-  const buffer = Buffer.from(await uploaded.arrayBuffer());
-  await fs.writeFile(path.join(outDir, filename), buffer);
-  const screenshotUrl = "/screenshots/" + filename;
+  const { url: screenshotUrl } = await put(filename, uploaded, { access: "public" });
 
   const notion = new Client({ auth: token });
 
@@ -149,11 +143,8 @@ export async function updateIssue(
     const website = (formData.get("website") as string) || "unknown";
     const ext = uploaded.type === "image/jpeg" ? "jpg" : "png";
     const filename = `${website}-upload-${Date.now()}.${ext}`;
-    const outDir = path.join(process.cwd(), "public", "screenshots");
-    await fs.mkdir(outDir, { recursive: true });
-    const buffer = Buffer.from(await uploaded.arrayBuffer());
-    await fs.writeFile(path.join(outDir, filename), buffer);
-    screenshotUrl = "/screenshots/" + filename;
+    const { url } = await put(filename, uploaded, { access: "public" });
+    screenshotUrl = url;
   }
 
   try {
