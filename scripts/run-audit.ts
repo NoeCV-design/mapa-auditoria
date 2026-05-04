@@ -12,13 +12,21 @@ import { AuditIssue, AuditWebsite } from "../src/types/audit";
 const WEBSITES: AuditWebsite[] = ["MAPA", "Alimentos", "Caminos"];
 
 async function main() {
-  const url = process.argv[2];
-  const website = process.argv[3] as AuditWebsite | undefined;
+  const args = process.argv.slice(2);
+  const url = args.find((a) => !a.startsWith("--"));
+  const website = args.filter((a) => !a.startsWith("--"))[1] as AuditWebsite | undefined;
+  const excludeHeader = args.includes("--exclude-header");
+  const excludeFooter = args.includes("--exclude-footer");
+
   if (!url || !website || !WEBSITES.includes(website)) {
-    console.error(`Usage: tsx scripts/run-audit.ts <url> <website>`);
+    console.error(`Usage: tsx scripts/run-audit.ts <url> <website> [--exclude-header] [--exclude-footer]`);
     console.error(`  website: ${WEBSITES.join(" | ")}`);
     process.exit(1);
   }
+
+  const exclude = { header: excludeHeader, footer: excludeFooter };
+  if (excludeHeader) console.log("  ↳ Excluyendo <header> del análisis");
+  if (excludeFooter) console.log("  ↳ Excluyendo <footer> del análisis");
 
   const databaseId = process.env.NOTION_DATABASE_ID;
   const skipNotion = !databaseId;
@@ -45,7 +53,7 @@ async function main() {
   console.log(`→ Capturing screenshot + running axe + Lighthouse in parallel`);
   const [shot, functionalAudit, lighthouseReport] = await Promise.all([
     captureScreenshot(url, website, outDir),
-    runFunctionalAudit(url),
+    runFunctionalAudit(url, exclude),
     runLighthouseAudit(url).catch((err) => {
       console.error("  ✗ Lighthouse failed:", (err as Error).message);
       return null;
@@ -59,8 +67,8 @@ async function main() {
 
   console.log(`→ Analyzing with AI`);
   const [detected, sourceIssues] = await Promise.all([
-    analyzeScreenshot(shot.path, website),
-    analyzeSourceCode(functionalAudit.structural, website),
+    analyzeScreenshot(shot.path, website, exclude),
+    analyzeSourceCode(functionalAudit.structural, website, exclude),
   ]);
 
   const issues: AuditIssue[] = await Promise.all(

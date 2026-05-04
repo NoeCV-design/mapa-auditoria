@@ -29,6 +29,8 @@ export default function AuditPage() {
     e.preventDefault();
     const form = e.currentTarget;
     const url = (form.elements.namedItem("url") as HTMLInputElement).value.trim();
+    const excludeHeader = (form.elements.namedItem("excludeHeader") as HTMLInputElement).checked;
+    const excludeFooter = (form.elements.namedItem("excludeFooter") as HTMLInputElement).checked;
     if (!url) return;
 
     setState("running");
@@ -39,7 +41,7 @@ export default function AuditPage() {
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, website: config?.website ?? "MAPA" }),
+        body: JSON.stringify({ url, website: config?.website ?? "MAPA", excludeHeader, excludeFooter }),
       });
 
       if (!res.ok) {
@@ -142,6 +144,23 @@ export default function AuditPage() {
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
             </div>
+
+            <fieldset className="space-y-2 rounded-md border border-border p-3" disabled={state === "running"}>
+              <legend className="px-1 text-xs font-medium text-foreground">
+                Excluir del análisis
+              </legend>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input type="checkbox" name="excludeHeader" value="1" className="h-4 w-4 accent-primary" />
+                Contenido del <code className="text-xs">&lt;header&gt;</code>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input type="checkbox" name="excludeFooter" value="1" className="h-4 w-4 accent-primary" />
+                Contenido del <code className="text-xs">&lt;footer&gt;</code>
+              </label>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                Útil para no repetir incidencias compartidas por todas las URLs del sitio.
+              </p>
+            </fieldset>
 
             <button
               type="submit"

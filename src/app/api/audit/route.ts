@@ -10,7 +10,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { url, website } = (await req.json()) as { url: string; website: string };
+  const { url, website, excludeHeader, excludeFooter } = (await req.json()) as {
+    url: string;
+    website: string;
+    excludeHeader?: boolean;
+    excludeFooter?: boolean;
+  };
   if (!url || !website) {
     return NextResponse.json({ error: "url y website son requeridos" }, { status: 400 });
   }
@@ -20,9 +25,13 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
+      const extraFlags = [
+        ...(excludeHeader ? ["--exclude-header"] : []),
+        ...(excludeFooter ? ["--exclude-footer"] : []),
+      ];
       const proc = spawn(
         "npx",
-        ["tsx", "scripts/run-audit.ts", url, website],
+        ["tsx", "scripts/run-audit.ts", url, website, ...extraFlags],
         { cwd, env: { ...process.env }, shell: true }
       );
 
