@@ -51,9 +51,18 @@ async function main() {
   }
 
   console.log(`→ Capturing screenshot + running axe + Lighthouse in parallel`);
+  const emptyFunctional: Awaited<ReturnType<typeof runFunctionalAudit>> = {
+    report: {} as never,
+    axe: { violations: [], passes: [], incomplete: [] },
+    structural: {} as never,
+  };
+
   const [shot, functionalAudit, lighthouseReport] = await Promise.all([
     captureScreenshot(url, website, outDir),
-    runFunctionalAudit(url, exclude),
+    runFunctionalAudit(url, exclude).catch((err) => {
+      console.error("  ✗ Functional audit failed:", (err as Error).message);
+      return emptyFunctional;
+    }),
     runLighthouseAudit(url).catch((err) => {
       console.error("  ✗ Lighthouse failed:", (err as Error).message);
       return null;

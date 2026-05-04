@@ -104,8 +104,11 @@ function runLighthouseCli(url: string, width: number, height: number): Promise<L
     `--screenEmulation.deviceScaleFactor=2`,
   ];
 
+  // On Windows, paths with spaces must be quoted when using shell:true
+  const lhCmd = process.platform === "win32" ? `"${lhBinary}"` : lhBinary;
+
   return new Promise((resolve, reject) => {
-    const proc = spawn(lhBinary, args, {
+    const proc = spawn(lhCmd, args, {
       shell: true, // needed on Windows for .cmd
       windowsHide: true,
     });
