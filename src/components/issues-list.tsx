@@ -23,7 +23,7 @@ import {
 import { AuditIssue, AuditCategory, AuditPriority, AuditResolution, AuditStatus, AuditWebsite } from "@/types/audit";
 import { updateStatus } from "@/app/actions";
 
-const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accessibility", "Functional", "Performance"];
+const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accesibilidad", "Funcional"];
 const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
 const RESOLUTIONS: AuditResolution[] = ["390x844", "414x896", "ambas"];
 
@@ -42,9 +42,8 @@ const websiteLabels: Record<AuditWebsite, string> = {
 const categoryStyles: Record<AuditCategory, string> = {
   UX: "text-violet-600 border-violet-200 bg-violet-50",
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
-  Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
-  Functional: "text-rose-600 border-rose-200 bg-rose-50",
-  Performance: "text-orange-600 border-orange-200 bg-orange-50",
+  Accesibilidad: "text-teal-600 border-teal-200 bg-teal-50",
+  Funcional: "text-rose-600 border-rose-200 bg-rose-50",
 };
 
 const priorityStyles: Record<AuditPriority, string> = {
@@ -64,10 +63,20 @@ const priorityLabels: Record<AuditPriority, string> = {
 const categoryLabels: Record<AuditCategory, string> = {
   UX: "UX",
   UI: "UI",
+  Accesibilidad: "Accesibilidad",
+  Funcional: "Funcional",
+};
+
+const CATEGORY_NORMALIZE: Record<string, AuditCategory> = {
   Accessibility: "Accesibilidad",
   Functional: "Funcional",
-  Performance: "Rendimiento",
+  Performance: "UX",
+  Conversion: "UX",
 };
+
+function normalizeCategory(raw: string): AuditCategory {
+  return (CATEGORY_NORMALIZE[raw] ?? raw) as AuditCategory;
+}
 
 const statusLabels: Record<AuditStatus, string> = {
   todo: "Pendiente",
@@ -117,7 +126,7 @@ function downloadCSV(issues: AuditIssue[], site: string) {
     escape(i.title),
     escape(websiteLabels[i.website] ?? i.website),
     escape(i.url),
-    escape(categoryLabels[i.category] ?? i.category),
+    escape(categoryLabels[normalizeCategory(i.category)] ?? i.category),
     escape(priorityLabels[i.priority] ?? i.priority),
     escape(statusLabels[i.status] ?? i.status),
     escape(i.resolution ? resolutionLabels[i.resolution] ?? i.resolution : ""),
@@ -169,7 +178,7 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
     const needle = urlFilter.trim().toLowerCase();
     const base = issues.filter(
       (i) =>
-        (category === "all" || i.category === category) &&
+        (category === "all" || normalizeCategory(i.category) === category) &&
         (priority === "all" || i.priority === priority) &&
         (resolution === "all" ||
           i.resolution === resolution ||
@@ -325,9 +334,11 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
                     </TableCell>
                   )}
                   <TableCell>
-                    <Badge variant="outline" className={`text-xs font-medium ${categoryStyles[issue.category]}`}>
-                      {categoryLabels[issue.category]}
+                    {(() => { const cat = normalizeCategory(issue.category); return (
+                    <Badge variant="outline" className={`text-xs font-medium ${categoryStyles[cat]}`}>
+                      {categoryLabels[cat]}
                     </Badge>
+                    ); })()}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={`text-xs font-medium ${priorityStyles[issue.priority]}`}>

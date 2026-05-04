@@ -53,9 +53,8 @@ async function main() {
         options: [
           { name: "UX", color: "purple" },
           { name: "UI", color: "blue" },
-          { name: "Performance", color: "orange" },
-          { name: "Accessibility", color: "green" },
-          { name: "Conversion", color: "pink" },
+          { name: "Accesibilidad", color: "green" },
+          { name: "Funcional", color: "red" },
         ],
       },
     },

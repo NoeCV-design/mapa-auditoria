@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { AuditPriority, AuditWebsite } from "@/types/audit";
 
 const WEBSITES: AuditWebsite[] = ["MAPA", "Alimentos", "Caminos"];
-const CATEGORIES = ["UX", "UI", "Accessibility", "Functional"] as const;
+const CATEGORIES = ["UX", "UI", "Accesibilidad", "Funcional"] as const;
 
 // Etiquetas de prioridad (consistentes con dashboard-tabs, issues-list y
 // la vista de detalle). El orden visual y los `value` son distintos, así

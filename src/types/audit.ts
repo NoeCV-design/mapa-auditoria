@@ -1,4 +1,4 @@
-export type AuditCategory = "UX" | "UI" | "Accessibility" | "Functional" | "Performance";
+export type AuditCategory = "UX" | "UI" | "Accesibilidad" | "Funcional";
 export type AuditPriority = "low" | "medium" | "high" | "critical";
 export type AuditStatus = "todo" | "in_progress" | "done";
 export type AuditWebsite = "MAPA" | "Alimentos" | "Caminos";

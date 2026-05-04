@@ -74,7 +74,7 @@ async function _fetchIssues(website: AuditWebsite | "all"): Promise<AuditIssue[]
   return deduped;
 }
 
-// Cache de 1 hora por website: Notion + traducción sólo se ejecutan una vez por TTL
+// Cache de 1 hora por website: la consulta a Notion sólo se ejecuta una vez por TTL
 export const fetchIssues = unstable_cache(
   _fetchIssues,
   ["notion-issues"],

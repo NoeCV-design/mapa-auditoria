@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Plus, ScanSearch } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { IssuesList } from "@/components/issues-list";
+import { ReloadButton } from "@/components/reload-button";
 import { fetchIssues } from "@/lib/notion";
 import { isAuthenticated } from "@/lib/auth";
 import { AuditWebsite } from "@/types/audit";
@@ -59,24 +60,27 @@ export default async function DashboardPage({
   return (
     <div className="flex flex-col flex-1">
       <PageHeader title={config.title} description={`${config.description} · ${issues.length} ${issues.length !== 1 ? "incidencias" : "incidencia"}`}>
-        {isAdmin && !isAggregated && (
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/${site}/audit`}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-foreground text-xs font-medium hover:bg-muted transition-colors"
-            >
-              <ScanSearch className="w-3.5 h-3.5" />
-              Auditar URL
-            </Link>
-            <Link
-              href={`/dashboard/${site}/new`}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Añadir incidencia
-            </Link>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <ReloadButton />
+          {isAdmin && !isAggregated && (
+            <>
+              <Link
+                href={`/dashboard/${site}/audit`}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-foreground text-xs font-medium hover:bg-muted transition-colors"
+              >
+                <ScanSearch className="w-3.5 h-3.5" />
+                Auditar URL
+              </Link>
+              <Link
+                href={`/dashboard/${site}/new`}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Añadir incidencia
+              </Link>
+            </>
+          )}
+        </div>
       </PageHeader>
       <div className="flex-1 p-6">
         <Suspense>
