@@ -22,13 +22,7 @@ import {
 import { issues } from "@/data/issues";
 import { AuditCategory, AuditPriority, AuditStatus } from "@/types/audit";
 
-const CATEGORIES: AuditCategory[] = [
-  "UX",
-  "UI",
-  "Accessibility",
-  "Functional",
-  "Performance",
-];
+const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accesibilidad", "Funcional"];
 const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
 const STATUSES: AuditStatus[] = ["todo", "in_progress", "done"];
 
@@ -54,17 +48,15 @@ const statusLabels: Record<AuditStatus, string> = {
 const categoryStyles: Record<AuditCategory, string> = {
   UX: "text-violet-600 border-violet-200 bg-violet-50",
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
-  Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
-  Functional: "text-rose-600 border-rose-200 bg-rose-50",
-  Performance: "text-orange-600 border-orange-200 bg-orange-50",
+  Accesibilidad: "text-teal-600 border-teal-200 bg-teal-50",
+  Funcional: "text-rose-600 border-rose-200 bg-rose-50",
 };
 
 const categoryLabels: Record<AuditCategory, string> = {
   UX: "UX",
   UI: "UI",
-  Accessibility: "Accesibilidad",
-  Functional: "Funcional",
-  Performance: "Rendimiento",
+  Accesibilidad: "Accesibilidad",
+  Funcional: "Funcional",
 };
 
 type FilterAll = "all";

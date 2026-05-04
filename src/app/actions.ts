@@ -103,7 +103,7 @@ export async function createIssue(formData: FormData) {
     },
   });
 
-  revalidateTag("notion-issues");
+  revalidateTag("notion-issues", "max");
   redirect(`/dashboard/${siteSlug[website]}`);
 }
 
@@ -170,7 +170,7 @@ export async function updateIssue(
     return `Error al actualizar: ${(err as Error).message}`;
   }
 
-  revalidateTag("notion-issues");
+  revalidateTag("notion-issues", "max");
   return null;
 }
 
@@ -191,12 +191,12 @@ export async function updateStatus(pageId: string, status: AuditStatus): Promise
     return `Error al actualizar: ${(err as Error).message}`;
   }
 
-  revalidateTag("notion-issues");
+  revalidateTag("notion-issues", "max");
   return null;
 }
 
 export async function reloadIssues(): Promise<void> {
-  revalidateTag("notion-issues");
+  revalidateTag("notion-issues", "max");
 }
 
 export async function deleteIssue(formData: FormData): Promise<void> {
@@ -213,6 +213,6 @@ export async function deleteIssue(formData: FormData): Promise<void> {
     await notion.pages.update({ page_id: pageId, archived: true });
   }
 
-  revalidateTag("notion-issues");
+  revalidateTag("notion-issues", "max");
   redirect(`/dashboard/${site}`);
 }

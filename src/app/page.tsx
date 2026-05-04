@@ -7,20 +7,26 @@ import { fetchIssues } from "@/lib/notion";
 import { DashboardTabs } from "@/components/dashboard-tabs";
 import { AuditCategory, AuditIssue } from "@/types/audit";
 
-const CATEGORIES: AuditCategory[] = ["UX", "UI", "Performance", "Accessibility", "Functional"];
+const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accesibilidad", "Funcional"];
+
+const CATEGORY_NORMALIZE: Record<string, AuditCategory> = {
+  Accessibility: "Accesibilidad",
+  Functional: "Funcional",
+  Performance: "UX",
+  Conversion: "UX",
+};
 
 const categoryLabels: Record<AuditCategory, string> = {
   UX: "UX",
   UI: "UI",
-  Performance: "Rendimiento",
-  Accessibility: "Accesibilidad",
-  Functional: "Funcional",
+  Accesibilidad: "Accesibilidad",
+  Funcional: "Funcional",
 };
 
 function computeCategoryBreakdown(issues: AuditIssue[]) {
   const total = issues.length;
   return CATEGORIES.map((cat) => {
-    const count = issues.filter((i) => i.category === cat).length;
+    const count = issues.filter((i) => (CATEGORY_NORMALIZE[i.category] ?? i.category) === cat).length;
     return {
       label: categoryLabels[cat],
       count,

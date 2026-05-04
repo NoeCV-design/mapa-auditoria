@@ -14,20 +14,28 @@ import {
 import { PriorityPieChart } from "@/components/priority-pie-chart";
 import { AuditIssue, AuditCategory, AuditPriority } from "@/types/audit";
 
+const CATEGORY_NORMALIZE: Record<string, AuditCategory> = {
+  Accessibility: "Accesibilidad",
+  Functional: "Funcional",
+  Performance: "UX",
+  Conversion: "UX",
+};
+function normalizeCategory(raw: string): AuditCategory {
+  return (CATEGORY_NORMALIZE[raw] ?? raw) as AuditCategory;
+}
+
 const categoryStyles: Record<AuditCategory, string> = {
   UX: "text-violet-600 border-violet-200 bg-violet-50",
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
-  Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
-  Functional: "text-rose-600 border-rose-200 bg-rose-50",
-  Performance: "text-orange-600 border-orange-200 bg-orange-50",
+  Accesibilidad: "text-teal-600 border-teal-200 bg-teal-50",
+  Funcional: "text-rose-600 border-rose-200 bg-rose-50",
 };
 
 const categoryLabels: Record<AuditCategory, string> = {
   UX: "UX",
   UI: "UI",
-  Accessibility: "Accesibilidad",
-  Functional: "Funcional",
-  Performance: "Rendimiento",
+  Accesibilidad: "Accesibilidad",
+  Funcional: "Funcional",
 };
 
 const priorityStyles: Record<AuditPriority, string> = {
@@ -132,9 +140,9 @@ export function DashboardTabs({ tabs }: { tabs: DashboardTab[] }) {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={`text-xs font-medium ${categoryStyles[issue.category]}`}
+                          className={`text-xs font-medium ${categoryStyles[normalizeCategory(issue.category)]}`}
                         >
-                          {categoryLabels[issue.category]}
+                          {categoryLabels[normalizeCategory(issue.category)]}
                         </Badge>
                       </TableCell>
                       <TableCell>

@@ -30,9 +30,8 @@ const statusLabels: Record<AuditStatus, string> = {
 const categoryStyles: Record<AuditCategory, string> = {
   UX: "text-violet-600 border-violet-200 bg-violet-50",
   UI: "text-indigo-600 border-indigo-200 bg-indigo-50",
-  Performance: "text-orange-600 border-orange-200 bg-orange-50",
-  Accessibility: "text-teal-600 border-teal-200 bg-teal-50",
-  Functional: "text-rose-600 border-rose-200 bg-rose-50",
+  Accesibilidad: "text-teal-600 border-teal-200 bg-teal-50",
+  Funcional: "text-rose-600 border-rose-200 bg-rose-50",
 };
 
 export function generateStaticParams() {

@@ -5,13 +5,12 @@ import { Pencil, Trash2, X, Loader2, CheckCircle2, ImagePlus } from "lucide-reac
 import { updateIssue, deleteIssue } from "@/app/actions";
 import type { AuditIssue, AuditCategory, AuditPriority, AuditStatus, AuditResolution } from "@/types/audit";
 
-const CATEGORIES: AuditCategory[] = ["UX", "UI", "Performance", "Accessibility", "Functional"];
+const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accesibilidad", "Funcional"];
 const CATEGORY_LABELS: Record<AuditCategory, string> = {
   UX: "UX",
   UI: "UI",
-  Performance: "Rendimiento",
-  Accessibility: "Accesibilidad",
-  Functional: "Funcional",
+  Accesibilidad: "Accesibilidad",
+  Funcional: "Funcional",
 };
 const PRIORITY_LABELS: Record<AuditPriority, string> = {
   low: "Baja",
