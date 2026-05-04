@@ -1,5 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
+import fs from "node:fs/promises";
+import { put } from "@vercel/blob";
 import { captureScreenshot, cropScreenshot } from "./screenshot";
 import { analyzeScreenshot, analyzeSourceCode } from "./analyze";
 import { runFunctionalAudit } from "./functional-audit";
@@ -38,15 +40,26 @@ async function main() {
     ? await getNextIssueNum({ databaseId })
     : 1;
 
-  // Crop helper — mirrors the cropOrFull pattern from actions.ts
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+
+  async function uploadToBlob(filePath: string, filename: string): Promise<string> {
+    if (!blobToken) return "/screenshots/" + filename;
+    const buffer = await fs.readFile(filePath);
+    const { url: blobUrl } = await put(filename, buffer, {
+      access: "private",
+      token: blobToken,
+    });
+    return `/api/blob?url=${encodeURIComponent(blobUrl)}`;
+  }
+
   async function cropOrFull(sourcePath: string, yPosition: number, id: string): Promise<string> {
     const cropFilename = `${website}-390x844-crop-${id}.png`;
     const cropPath = path.join(outDir, cropFilename);
     try {
       await cropScreenshot(sourcePath, yPosition, "390x844", cropPath);
-      return "/screenshots/" + cropFilename;
+      return uploadToBlob(cropPath, cropFilename);
     } catch {
-      return "/screenshots/" + path.basename(sourcePath);
+      return uploadToBlob(sourcePath, path.basename(sourcePath));
     }
   }
 
