@@ -162,7 +162,7 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
   const resolution = (searchParams.get("resolution") as AuditResolution | FilterAll | null) ?? "all";
   const [urlFilter, setUrlFilter] = useState(searchParams.get("url") ?? "");
   const sortParam = searchParams.get("sort");
-  const sortDir: SortDir = sortParam === "asc" || sortParam === "desc" ? sortParam : null;
+  const sortDir: SortDir = sortParam === "asc" ? "asc" : "desc";
   const [optimisticStatus, setOptimisticStatus] = useState<Record<string, AuditStatus>>({});
   const [, startTransition] = useTransition();
 
@@ -185,7 +185,6 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
           i.resolution === "ambas") &&
         (!needle || i.url.toLowerCase().includes(needle))
     );
-    if (!sortDir) return base;
     const sorted = [...base].sort((a, b) => a.id.localeCompare(b.id, "es", { numeric: true }));
     return sortDir === "asc" ? sorted : sorted.reverse();
   }, [issues, category, priority, resolution, urlFilter, sortDir]);
@@ -199,8 +198,7 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
   }
 
   function toggleIdSort() {
-    const next: SortDir = sortDir === null ? "asc" : sortDir === "asc" ? "desc" : null;
-    updateParam("sort", next);
+    updateParam("sort", sortDir === "desc" ? "asc" : "desc");
   }
 
   return (
