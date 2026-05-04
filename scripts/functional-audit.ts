@@ -1,6 +1,14 @@
 import { chromium, devices, type Page, type ConsoleMessage, type Request, type Locator } from "playwright";
 import path from "node:path";
+import fs from "node:fs";
 import { CaptureResolution, RESOLUTION_DEVICE, dismissCookieConsent, waitForStableLayout, warmUpScroll } from "./screenshot";
+
+// Loaded once at module init — plain JS so esbuild never transforms it.
+// Avoids the __name() ReferenceError that occurs when tsx serialises TS arrow functions for page.evaluate.
+const STRUCTURAL_EVAL_FN: string = fs.readFileSync(
+  path.join(process.cwd(), "scripts", "structural-eval.js"),
+  "utf8",
+);
 
 const AXE_PATH: string = path.join(process.cwd(), "node_modules", "axe-core", "axe.js");
 
@@ -834,13 +842,14 @@ export async function runFunctionalAudit(
 // ─── Structural findings ─────────────────────────────────────────────────────
 
 async function extractStructuralFindings(page: Page, excludeSel: string): Promise<StructuralFindings> {
-  // NOTE: all logic is inlined. Helper functions inside page.evaluate get
-  // transpiled by tsx/esbuild with `__name(...)` wrappers that fail in the
-  // browser context (ReferenceError: __name is not defined).
+  return page.evaluate(`(${STRUCTURAL_EVAL_FN})(${JSON.stringify(excludeSel)})`) as Promise<StructuralFindings>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _extractStructuralFindingsOriginal(page: Page, excludeSel: string): Promise<StructuralFindings> {
+  // DEAD CODE — kept for reference only. The live version above reads structural-eval.js
+  // as a plain-JS string to avoid tsx/esbuild adding __name() wrappers.
   return page.evaluate((exSel: string): StructuralFindings => {
-    // Elements inside these regions are skipped from all counts and samples.
-    // Document-level checks (lang, title, aria-hidden on body) are always
-    // evaluated because they are attributes of <html>/<body>, not descendants.
     const inExcluded = (el: Element): boolean => (exSel ? !!el.closest(exSel) : false);
     // ─── Document-level checks ──────────────────────────────────────────────
     const lang = document.documentElement.getAttribute("lang");
