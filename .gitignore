@@ -42,3 +42,6 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# local audit screenshots (uploaded to Vercel Blob in production)
+/public/screenshots/
