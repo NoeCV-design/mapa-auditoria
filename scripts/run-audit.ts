@@ -6,8 +6,6 @@ import { captureScreenshot, cropScreenshot } from "./screenshot";
 import { analyzeScreenshot, analyzeSourceCode } from "./analyze";
 import { runFunctionalAudit } from "./functional-audit";
 import { axeToIssues } from "./axe";
-import { runLighthouseAudit } from "./lighthouse-audit";
-import { lighthouseToIssues } from "./lighthouse";
 import { sendToNotion, getNextIssueNum } from "./notion";
 import { AuditIssue, AuditWebsite } from "../src/types/audit";
 
@@ -63,29 +61,22 @@ async function main() {
     }
   }
 
-  console.log(`→ Capturing screenshot + running axe + Lighthouse in parallel`);
+  console.log(`→ Capturing screenshot + running axe in parallel`);
   const emptyFunctional: Awaited<ReturnType<typeof runFunctionalAudit>> = {
     report: {} as never,
     axe: { violations: [], passes: [], incomplete: [] },
     structural: {} as never,
   };
 
-  const [shot, functionalAudit, lighthouseReport] = await Promise.all([
+  const [shot, functionalAudit] = await Promise.all([
     captureScreenshot(url, website, outDir),
     runFunctionalAudit(url, exclude).catch((err) => {
       console.error("  ✗ Functional audit failed:", (err as Error).message);
       return emptyFunctional;
     }),
-    runLighthouseAudit(url).catch((err) => {
-      console.error("  ✗ Lighthouse failed:", (err as Error).message);
-      return null;
-    }),
   ]);
   console.log(`  ✓ Saved ${shot.path}`);
   console.log(`  ✓ Axe: ${functionalAudit.axe.violations.length} violation(s)`);
-  if (lighthouseReport) {
-    console.log(`  ✓ Lighthouse: score ${lighthouseReport.score}, ${lighthouseReport.failedAudits.length} failed audit(s)`);
-  }
 
   console.log(`→ Analyzing with AI`);
   const [detected, sourceIssues] = await Promise.all([
@@ -120,17 +111,7 @@ async function main() {
   );
   console.log(`  ✓ Found ${codeIssues.length} source-code issue(s)`);
 
-  const perfIssuesRaw = lighthouseReport ? lighthouseToIssues(lighthouseReport) : [];
-  const perfIssues: AuditIssue[] = await Promise.all(
-    perfIssuesRaw.map(async (d) => {
-      const id = `UX-${String(idx++).padStart(3, "0")}`;
-      const screenshot = await cropOrFull(shot.path, d.yPosition, id);
-      return { ...d, id, website, url, screenshot, resolution: "ambas" as const, status: "todo" as const, source: "lighthouse" as const };
-    }),
-  );
-  console.log(`  ✓ Found ${perfIssues.length} performance issue(s)`);
-
-  const allIssues = [...issues, ...axeIssues, ...codeIssues, ...perfIssues];
+  const allIssues = [...issues, ...axeIssues, ...codeIssues];
   console.log(`  ✓ Total: ${allIssues.length} issue(s)`);
   for (const issue of allIssues) {
     console.log(`    · ${issue.id} [${issue.priority}] ${issue.title}`);
