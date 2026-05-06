@@ -52,17 +52,10 @@ export async function fetchFromNotion(
       const p = page.properties;
       const res = text(p, "Resolution");
       const src = text(p, "Source");
-      // Support two ID storage strategies:
-      // 1. Legacy: ID column (rich_text) stores "UX-NNN" directly.
-      // 2. Fallback: "[UX-NNN] " prefix in the Title column when ID is a checkbox.
-      const rawTitle = text(p, "Title");
-      const titlePrefixMatch = rawTitle.match(/^\[([^\]]+)\]\s*([\s\S]*)/);
-      const id = text(p, "ID") || (titlePrefixMatch ? titlePrefixMatch[1] : page.id);
-      const title = titlePrefixMatch ? (titlePrefixMatch[2] || rawTitle) : rawTitle;
       return {
-        id,
+        id: text(p, "ID") || page.id,
         pageId: page.id,
-        title,
+        title: text(p, "Title"),
         website: text(p, "Website") as AuditWebsite,
         category: text(p, "Category") as AuditIssue["category"],
         priority: text(p, "Priority") as AuditIssue["priority"],
@@ -168,10 +161,8 @@ export async function sendToNotion(
     await notion.pages.create({
       parent: { type: "data_source_id", data_source_id: dataSourceId } as never,
       properties: {
-        // ID column type changed to checkbox in Notion — store the UX-NNN as a
-        // "[UX-NNN] " prefix in Title so it survives reads. Restore clean data by
-        // changing the ID column type back to Text in Notion and reverting this.
-        Title: { title: [{ text: { content: `[${issue.id}] ${issue.title}` } }] },
+        Title: { title: [{ text: { content: issue.title } }] },
+        ID: { rich_text: [{ text: { content: issue.id } }] },
         Website: { select: { name: issue.website } },
         Category: { select: { name: issue.category } },
         Priority: { select: { name: issue.priority } },

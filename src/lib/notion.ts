@@ -47,17 +47,10 @@ async function _fetchIssues(website: AuditWebsite | "all"): Promise<AuditIssue[]
 
   const raw = allResults.map((page) => {
     const p = page.properties;
-    // Support two ID storage strategies:
-    // 1. Legacy: ID column (rich_text) stores "UX-NNN" directly.
-    // 2. Fallback: "[UX-NNN] " prefix in Title when ID column type changed to checkbox.
-    const rawTitle = text(p, "Title");
-    const titlePrefixMatch = rawTitle.match(/^\[([^\]]+)\]\s*([\s\S]*)/);
-    const id = text(p, "ID") || (titlePrefixMatch ? titlePrefixMatch[1] : page.id);
-    const title = titlePrefixMatch ? (titlePrefixMatch[2] || rawTitle) : rawTitle;
     return {
-      id,
+      id: text(p, "ID") || page.id,
       pageId: page.id,
-      title,
+      title: text(p, "Title"),
       website: text(p, "Website") as AuditWebsite,
       category: text(p, "Category") as AuditIssue["category"],
       priority: text(p, "Priority") as AuditIssue["priority"],
