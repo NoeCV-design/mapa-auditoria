@@ -66,6 +66,7 @@ const sourceLabels: Record<AuditSource, string> = {
   axe: "Axe",
   lighthouse: "Lighthouse",
   manual: "Manual",
+  heuristic: "Heurístico",
 };
 
 const sourceStyles: Record<AuditSource, string> = {
