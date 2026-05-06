@@ -56,7 +56,7 @@ Esquema de cada objeto:
 {"title":string,"category":"UX"|"UI"|"Accesibilidad","priority":"low"|"medium"|"high","problem":string,"solution":string,"impact":string,"yPosition":number}
 
 Reglas:
-- Máximo 5 incidencias. Prioriza las más graves.
+- Máximo 8 incidencias. Incluye SIEMPRE todas las de categoría "Accesibilidad" que detectes aunque superen el máximo de las otras categorías. Prioriza las más graves.
 - NO reportes problemas de rendimiento/carga. La captura se hizo en un entorno automatizado, NO refleja la velocidad real del sitio.
 - NO reportes imágenes que no hayan cargado o zonas en blanco por carga incompleta: son artefactos de la captura.
 - title: ≤8 palabras.
@@ -79,7 +79,7 @@ Esquema de cada objeto:
 {"title":string,"category":"UX"|"UI"|"Accesibilidad","priority":"low"|"medium"|"high","problem":string,"solution":string,"impact":string,"resolution":"390x844"|"414x896"|"ambas","yPosition":number}
 
 Reglas:
-- Máximo 5 incidencias. Prioriza las más graves.
+- Máximo 8 incidencias. Incluye SIEMPRE todas las de categoría "Accesibilidad" que detectes aunque superen el máximo de las otras categorías. Prioriza las más graves.
 - NO reportes problemas de rendimiento/carga. La captura se hizo en un entorno automatizado, NO refleja la velocidad real del sitio.
 - NO reportes imágenes que no hayan cargado o zonas en blanco por carga incompleta: son artefactos de la captura.
 - title: ≤8 palabras.
@@ -158,7 +158,7 @@ Reglas de conversión (genera una incidencia por cada campo problemático; omite
 - document.duplicateIds.length > 0 → Accesibilidad/medium "IDs duplicados" (WCAG 4.1.1 / 9.4.1.1). Lista los ids.
 
 Otras reglas:
-- Máximo 5 incidencias. Prioriza las de priority "high".
+- Máximo 10 incidencias (una por cada campo problemático distinto). Prioriza las de priority "high".
 - Si ningún campo indica problema, devuelve [].
 - title: ≤8 palabras.
 - problem: 1-2 frases con los datos del JSON (números + samples). Si el JSON incluye samples con fragmentos HTML o selectores concretos (h1Samples, sample, ids, etc.), añádelos al final con el formato exacto: "\n\nCódigo:\n" seguido de los fragmentos (máx. 3, uno por línea). Ejemplo: "\n\nCódigo:\n<h1>Inicio</h1>\n<h1>Bienvenido</h1>".
@@ -295,7 +295,7 @@ export async function analyzeScreenshot(
     }
     parts.push({ text: userText });
     const raw = await geminiGenerate(SYSTEM_PROMPT, parts);
-    return parseJson<DetectedIssue[]>(raw, "Gemini analyzeScreenshot").slice(0, 5);
+    return parseJson<DetectedIssue[]>(raw, "Gemini analyzeScreenshot").slice(0, 8);
   }
 
   // Anthropic
@@ -313,7 +313,7 @@ export async function analyzeScreenshot(
     messages: [{ role: "user", content }],
   });
   const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
-  return parseJson<DetectedIssue[]>(raw, "Claude analyzeScreenshot").slice(0, 5);
+  return parseJson<DetectedIssue[]>(raw, "Claude analyzeScreenshot").slice(0, 8);
 }
 
 // ─── analyzeDualScreenshots ───────────────────────────────────────────────────
@@ -341,7 +341,7 @@ export async function analyzeDualScreenshots(
     }
     parts.push({ text: userText });
     const raw = await geminiGenerate(DUAL_SYSTEM_PROMPT, parts);
-    return parseJson<DetectedIssueDual[]>(raw, "Gemini analyzeDualScreenshots").slice(0, 5);
+    return parseJson<DetectedIssueDual[]>(raw, "Gemini analyzeDualScreenshots").slice(0, 8);
   }
 
   // Anthropic
@@ -365,7 +365,7 @@ export async function analyzeDualScreenshots(
     messages: [{ role: "user", content }],
   });
   const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
-  return parseJson<DetectedIssueDual[]>(raw, "Claude analyzeDualScreenshots").slice(0, 5);
+  return parseJson<DetectedIssueDual[]>(raw, "Claude analyzeDualScreenshots").slice(0, 8);
 }
 
 // ─── analyzeFunctionalReport ──────────────────────────────────────────────────
@@ -488,15 +488,15 @@ export async function analyzeSourceCode(
 
   if (getProvider() === "gemini") {
     const raw = await geminiGenerate(SOURCE_SYSTEM_PROMPT, [{ text: userText }]);
-    return parseJson<DetectedIssue[]>(raw, "Gemini analyzeSourceCode").slice(0, 5);
+    return parseJson<DetectedIssue[]>(raw, "Gemini analyzeSourceCode").slice(0, 10);
   }
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 2_000,
+    max_tokens: 3_000,
     system: SOURCE_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userText }],
   });
   const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
-  return parseJson<DetectedIssue[]>(raw, "Claude analyzeSourceCode").slice(0, 5);
+  return parseJson<DetectedIssue[]>(raw, "Claude analyzeSourceCode").slice(0, 10);
 }
