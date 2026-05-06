@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AuditIssue, AuditCategory, AuditPriority, AuditResolution, AuditStatus, AuditWebsite } from "@/types/audit";
-import { updateStatus } from "@/app/actions";
+import { updateStatus, deleteIssues } from "@/app/actions";
 
 const CATEGORIES: AuditCategory[] = ["UX", "UI", "Accesibilidad", "Funcional"];
 const PRIORITIES: AuditPriority[] = ["low", "medium", "high", "critical"];
@@ -137,7 +137,7 @@ function downloadCSV(issues: AuditIssue[], site: string) {
   ]);
   const csv = [headers.join(SEP), ...rows.map((r) => r.join(SEP))].join("\r\n");
   // BOM para que Excel abra correctamente con UTF-8
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -150,7 +150,7 @@ function downloadCSV(issues: AuditIssue[], site: string) {
 
 type SortDir = "asc" | "desc" | null;
 
-export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: string }) {
+export function IssuesList({ issues, site, isAdmin }: { issues: AuditIssue[]; site: string; isAdmin?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -164,7 +164,13 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
   const sortParam = searchParams.get("sort");
   const sortDir: SortDir = sortParam === "asc" ? "asc" : "desc";
   const [optimisticStatus, setOptimisticStatus] = useState<Record<string, AuditStatus>>({});
-  const [, startTransition] = useTransition();
+  const [, startStatusTransition] = useTransition();
+
+  // Bulk selection state
+  const [selectedPageIds, setSelectedPageIds] = useState<Set<string>>(new Set());
+  const [deleteState, setDeleteState] = useState<"idle" | "confirm">("idle");
+  const [isDeleting, startDeleteTransition] = useTransition();
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   function updateParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -189,10 +195,49 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
     return sortDir === "asc" ? sorted : sorted.reverse();
   }, [issues, category, priority, resolution, urlFilter, sortDir]);
 
+  // Issues elegibles para selección (sólo las que tienen pageId en Notion)
+  const eligible = useMemo(() => filtered.filter((i) => !!i.pageId), [filtered]);
+  const allSelected = eligible.length > 0 && eligible.every((i) => selectedPageIds.has(i.pageId!));
+  const someSelected = eligible.some((i) => selectedPageIds.has(i.pageId!));
+
+  // Actualiza el estado indeterminate del checkbox "seleccionar todo"
+  if (selectAllRef.current) {
+    selectAllRef.current.indeterminate = someSelected && !allSelected;
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedPageIds(new Set());
+    } else {
+      setSelectedPageIds(new Set(eligible.map((i) => i.pageId!)));
+    }
+    setDeleteState("idle");
+  }
+
+  function toggleOne(pageId: string) {
+    setSelectedPageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pageId)) next.delete(pageId);
+      else next.add(pageId);
+      return next;
+    });
+    setDeleteState("idle");
+  }
+
+  function handleDelete() {
+    const ids = Array.from(selectedPageIds);
+    startDeleteTransition(async () => {
+      await deleteIssues(ids);
+      setSelectedPageIds(new Set());
+      setDeleteState("idle");
+      router.refresh();
+    });
+  }
+
   function handleStatusChange(issue: AuditIssue, newStatus: AuditStatus) {
     if (!issue.pageId) return;
     setOptimisticStatus((prev) => ({ ...prev, [issue.id]: newStatus }));
-    startTransition(async () => {
+    startStatusTransition(async () => {
       await updateStatus(issue.pageId!, newStatus);
     });
   }
@@ -281,6 +326,54 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
+                {isAdmin && (
+                  <TableHead className="w-8 pl-4 pr-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        disabled={eligible.length === 0 || isDeleting}
+                        className="h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed"
+                        aria-label="Seleccionar todas"
+                      />
+                      {someSelected && deleteState === "idle" && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteState("confirm")}
+                          className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Eliminar ({selectedPageIds.size})
+                        </button>
+                      )}
+                      {deleteState === "confirm" && (
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="text-xs text-red-600 font-medium">
+                            ¿Eliminar {selectedPageIds.size}?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="text-xs text-red-600 hover:text-red-700 font-semibold underline disabled:opacity-50"
+                          >
+                            {isDeleting ? "…" : "Sí"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteState("idle")}
+                            disabled={isDeleting}
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            No
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </TableHead>
+                )}
                 <TableHead className="w-24 text-xs font-medium">
                   <button
                     type="button"
@@ -309,8 +402,25 @@ export function IssuesList({ issues, site }: { issues: AuditIssue[]; site: strin
               {filtered.map((issue) => {
                 const issueSiteSlug = isAllSites ? websiteToSlug[issue.website] : site;
                 const issueHref = `/dashboard/${issueSiteSlug}/issues/${issue.id}`;
+                const isSelected = !!issue.pageId && selectedPageIds.has(issue.pageId);
                 return (
-                <TableRow key={issue.id}>
+                <TableRow key={issue.id} className={isSelected ? "bg-red-50/50" : undefined}>
+                  {isAdmin && (
+                    <TableCell className="pl-4 pr-2" onClick={(e) => e.stopPropagation()}>
+                      {issue.pageId ? (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(issue.pageId!)}
+                          disabled={isDeleting}
+                          className="h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed"
+                          aria-label={`Seleccionar ${issue.id}`}
+                        />
+                      ) : (
+                        <span className="block w-4 h-4" />
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     <Link href={issueHref} className="block hover:underline">
                       {issue.id}

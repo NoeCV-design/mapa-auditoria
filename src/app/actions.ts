@@ -199,6 +199,17 @@ export async function reloadIssues(): Promise<void> {
   revalidateTag("notion-issues", "max");
 }
 
+export async function deleteIssues(pageIds: string[]): Promise<void> {
+  if (!(await isAuthenticated())) throw new Error("No autorizado");
+  const token = process.env.NOTION_TOKEN;
+  if (!token) throw new Error("NOTION_TOKEN no configurado");
+  const notion = new Client({ auth: token });
+  await Promise.all(
+    pageIds.filter(Boolean).map((id) => notion.pages.update({ page_id: id, archived: true }))
+  );
+  revalidateTag("notion-issues", "max");
+}
+
 export async function deleteIssue(formData: FormData): Promise<void> {
   if (!(await isAuthenticated())) throw new Error("No autorizado");
 

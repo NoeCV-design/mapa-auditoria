@@ -194,12 +194,51 @@ function sanitizeControlChars(json: string): string {
   );
 }
 
+/** Fixes unescaped double quotes inside JSON string values (a common Gemini artifact).
+ *  Walks the JSON character by character; when inside a string, any `"` that is NOT
+ *  followed (after optional whitespace) by `,` `}` `]` or `:` is treated as a stray
+ *  inner quote and escaped to `\"`. */
+function repairUnescapedQuotes(json: string): string {
+  let result = "";
+  let i = 0;
+  while (i < json.length) {
+    if (json[i] !== '"') { result += json[i++]; continue; }
+    result += '"';
+    i++;
+    while (i < json.length) {
+      if (json[i] === "\\") {
+        result += json[i] + (json[i + 1] ?? "");
+        i += 2;
+        continue;
+      }
+      if (json[i] === '"') {
+        // Peek ahead (skip whitespace) to decide if this is the true end of the string
+        let j = i + 1;
+        while (j < json.length && " \t\r\n".includes(json[j])) j++;
+        const next = json[j];
+        if (next === "," || next === "}" || next === "]" || next === ":" || j >= json.length) {
+          result += '"'; i++; break;
+        }
+        result += '\\"'; i++;
+        continue;
+      }
+      result += json[i++];
+    }
+  }
+  return result;
+}
+
 function parseJson<T>(raw: string, label: string): T {
   const cleaned = raw.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+  const sanitized = sanitizeControlChars(cleaned);
   try {
-    return JSON.parse(sanitizeControlChars(cleaned)) as T;
-  } catch (err) {
-    throw new Error(`Failed to parse ${label} response as JSON: ${(err as Error).message}\n\nResponse:\n${raw}`);
+    return JSON.parse(sanitized) as T;
+  } catch {
+    try {
+      return JSON.parse(repairUnescapedQuotes(sanitized)) as T;
+    } catch (err) {
+      throw new Error(`Failed to parse ${label} response as JSON: ${(err as Error).message}\n\nResponse:\n${raw}`);
+    }
   }
 }
 
@@ -351,6 +390,92 @@ export async function analyzeFunctionalReport(
   });
   const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
   return parseJson<DetectedIssue[]>(raw, "Claude analyzeFunctionalReport").slice(0, 5);
+}
+
+// ─── analyzeHeuristics ───────────────────────────────────────────────────────
+
+const HEURISTIC_SYSTEM_PROMPT = `Devuelve ÚNICAMENTE un array JSON válido. Sin prosa, sin markdown, sin bloques de código.
+
+Esquema de cada objeto:
+{"title":string,"category":"UX","priority":"low"|"medium"|"high","problem":string,"solution":string,"impact":string,"yPosition":number}
+
+Eres un experto en evaluación heurística de usabilidad (Nielsen Norman Group). Analiza la captura mobile aplicando los 10 principios heurísticos de Nielsen. Reporta únicamente los principios que presenten problemas claros y verificables visualmente.
+
+Formato obligatorio de los campos:
+- title: exactamente "Heuríst.: " seguido de descripción breve del problema (≤6 palabras adicionales). Total ≤8 palabras.
+- problem: exactamente "Heurístico #N: " (donde N es el número del principio, 1-10) seguido de la explicación del problema detectado (1-2 frases). Identifica el elemento concreto visible en la captura.
+- solution: 1-2 frases con la corrección específica.
+- impact: 1 frase describiendo el impacto negativo del problema en los usuarios (no de la solución). Ejemplo: "Los usuarios no saben en qué paso del proceso se encuentran, lo que genera desorientación y abandono."
+- category: siempre "UX".
+- yPosition: porcentaje vertical 0-100 en la página completa. Si la captura viene en secciones etiquetadas con rango, calcula la posición global dentro de ese rango.
+
+Principios a evaluar:
+#1 Visibilidad del estado del sistema — el usuario siempre sabe qué está ocurriendo (indicadores de carga, estado activo, feedback de acciones, elementos seleccionados).
+#2 Correspondencia con el mundo real — lenguaje, iconos y convenciones son familiares para el usuario; se evita jerga técnica.
+#3 Control y libertad del usuario — el usuario puede deshacer acciones, salir de flujos y volver atrás con facilidad; existen salidas de emergencia claras.
+#4 Consistencia y estándares — elementos similares se presentan y comportan de forma coherente; se siguen las convenciones de plataforma móvil.
+#5 Prevención de errores — el diseño evita proactivamente los errores antes de que ocurran (confirmaciones, restricciones de formato, guías contextuales).
+#6 Reconocimiento en lugar de recuerdo — la información necesaria está siempre visible; el usuario no necesita memorizar nada entre pantallas ni pasos.
+#7 Flexibilidad y eficiencia de uso — hay accesos rápidos o rutas alternativas para usuarios avanzados sin penalizar a usuarios nuevos.
+#8 Diseño estético y minimalista — la interfaz muestra solo la información relevante; se evita el ruido visual, los contenidos irrelevantes y la sobrecarga cognitiva.
+#9 Ayuda para reconocer, diagnosticar y recuperarse de errores — los mensajes de error son claros, en lenguaje comprensible y ofrecen una solución accionable.
+#10 Ayuda y documentación — hay orientación contextual disponible cuando el usuario la necesita, sin interrumpir el flujo principal.
+
+Restricciones:
+- Máximo 5 incidencias. Prioriza las más graves para la experiencia móvil.
+- NO reportes problemas de accesibilidad técnica (contraste WCAG, alt text, atributos ARIA, semántica HTML) — esos se analizan en un pipeline separado.
+- NO reportes problemas de rendimiento, carga ni recursos fallidos.
+- NO menciones herramientas, auditorías automáticas, datos técnicos de análisis ni ninguna fuente externa en tu respuesta. Tu análisis debe leerse como una evaluación heurística puramente observacional.
+- Secciones etiquetadas = página continua; analízalas como un todo.
+- Si no hay problemas heurísticos claros verificables visualmente, devuelve [].
+- Todos los textos en español.`;
+
+type AxeViolationRef = { id: string; impact: string | null; nodes: unknown[] };
+
+function buildAxeContext(violations: AxeViolationRef[]): string {
+  if (violations.length === 0) return "";
+  const summary = violations
+    .map((v) => `${v.id} (${v.impact ?? "unknown"}, ${v.nodes.length} elemento/s)`)
+    .join("; ");
+  return `\n\nContexto interno de referencia (NO lo menciones en tu respuesta): se han detectado las siguientes incidencias técnicas en el DOM de esta página: ${summary}. Úsalas únicamente como señales para identificar qué áreas del diseño pueden presentar problemas heurísticos, pero describe los problemas en términos de experiencia de usuario, nunca de código ni herramientas.`;
+}
+
+export async function analyzeHeuristics(
+  screenshotPath: string,
+  website: string,
+  axeViolations: AxeViolationRef[],
+  exclude?: ExcludeOptions,
+): Promise<DetectedIssue[]> {
+  const tiles = await splitIntoTiles(screenshotPath);
+  const userText = `Sitio: ${website}. Evalúa esta captura mobile aplicando los 10 heurísticos de Nielsen.${buildAxeContext(axeViolations)}${excludeInstruction(exclude)}`;
+
+  if (getProvider() === "gemini") {
+    const parts: GeminiPart[] = [];
+    for (const tile of tiles) {
+      if (tiles.length > 1) parts.push({ text: `Sección ${tile.tileIndex + 1}/${tile.totalTiles} (${tile.startYPercent}%-${tile.endYPercent}%):` });
+      parts.push({ inlineData: { mimeType: tile.mediaType, data: tile.buffer.toString("base64") } });
+    }
+    parts.push({ text: userText });
+    const raw = await geminiGenerate(HEURISTIC_SYSTEM_PROMPT, parts);
+    return parseJson<DetectedIssue[]>(raw, "Gemini analyzeHeuristics").slice(0, 5);
+  }
+
+  // Anthropic
+  const content: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+  for (const tile of tiles) {
+    if (tiles.length > 1) content.push({ type: "text", text: `Sección ${tile.tileIndex + 1}/${tile.totalTiles} (${tile.startYPercent}%-${tile.endYPercent}%):` });
+    content.push({ type: "image", source: { type: "base64", media_type: tile.mediaType, data: tile.buffer.toString("base64") } });
+  }
+  content.push({ type: "text", text: userText });
+
+  const response = await anthropic.messages.create({
+    model: "claude-opus-4-6",
+    max_tokens: 4_000,
+    system: HEURISTIC_SYSTEM_PROMPT,
+    messages: [{ role: "user", content }],
+  });
+  const raw = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("").trim();
+  return parseJson<DetectedIssue[]>(raw, "Claude analyzeHeuristics").slice(0, 5);
 }
 
 // ─── analyzeSourceCode ────────────────────────────────────────────────────────

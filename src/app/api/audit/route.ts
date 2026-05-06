@@ -10,11 +10,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { url, website, excludeHeader, excludeFooter } = (await req.json()) as {
+  const { url, website, excludeHeader, excludeFooter, mode } = (await req.json()) as {
     url: string;
     website: string;
     excludeHeader?: boolean;
     excludeFooter?: boolean;
+    mode?: "full" | "heuristic";
   };
   if (!url || !website) {
     return NextResponse.json({ error: "url y website son requeridos" }, { status: 400 });
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
       const extraFlags = [
         ...(excludeHeader ? ["--exclude-header"] : []),
         ...(excludeFooter ? ["--exclude-footer"] : []),
+        `--mode=${mode === "heuristic" ? "heuristic" : "full"}`,
       ];
       const proc = spawn(
         "npx",

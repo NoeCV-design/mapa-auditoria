@@ -13,6 +13,7 @@ function text(props: Props, key: string): string {
   return "";
 }
 
+
 async function _fetchIssues(website: AuditWebsite | "all"): Promise<AuditIssue[]> {
   const token = process.env.NOTION_TOKEN;
   const databaseId = process.env.NOTION_DATABASE_ID;
@@ -60,6 +61,7 @@ async function _fetchIssues(website: AuditWebsite | "all"): Promise<AuditIssue[]
       solution: text(p, "Solution"),
       impact: text(p, "Impact"),
       resolution: (text(p, "Resolution") || undefined) as AuditIssue["resolution"],
+      isHeuristic: text(p, "Source") === "heuristic",
     };
   });
 

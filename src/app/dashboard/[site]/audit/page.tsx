@@ -23,6 +23,7 @@ export default function AuditPage() {
   const [state, setState] = useState<State>("idle");
   const [output, setOutput] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [mode, setMode] = useState<"full" | "heuristic">("full");
   const outputRef = useRef<HTMLPreElement>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -41,7 +42,7 @@ export default function AuditPage() {
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, website: config?.website ?? "MAPA", excludeHeader, excludeFooter }),
+        body: JSON.stringify({ url, website: config?.website ?? "MAPA", excludeHeader, excludeFooter, mode }),
       });
 
       if (!res.ok) {
@@ -144,6 +145,37 @@ export default function AuditPage() {
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
             </div>
+
+            <fieldset className="space-y-2 rounded-md border border-border p-3" disabled={state === "running"}>
+              <legend className="px-1 text-xs font-medium text-foreground">
+                Tipo de análisis
+              </legend>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="full"
+                  checked={mode === "full"}
+                  onChange={() => setMode("full")}
+                  className="h-4 w-4 accent-primary"
+                />
+                Analizar todo
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="radio"
+                  name="mode"
+                  value="heuristic"
+                  checked={mode === "heuristic"}
+                  onChange={() => setMode("heuristic")}
+                  className="h-4 w-4 accent-primary"
+                />
+                Solo análisis heurístico
+              </label>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                "Solo análisis heurístico" añade únicamente incidencias heurísticas (Nielsen) a URLs ya analizadas.
+              </p>
+            </fieldset>
 
             <fieldset className="space-y-2 rounded-md border border-border p-3" disabled={state === "running"}>
               <legend className="px-1 text-xs font-medium text-foreground">

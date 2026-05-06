@@ -65,6 +65,7 @@ export async function fetchFromNotion(
         impact: text(p, "Impact"),
         resolution: (res || undefined) as AuditIssue["resolution"],
         source: (src || undefined) as AuditIssue["source"],
+        isHeuristic: src === "heuristic",
       };
     });
 }

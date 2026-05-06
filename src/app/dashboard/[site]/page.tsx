@@ -84,7 +84,7 @@ export default async function DashboardPage({
       </PageHeader>
       <div className="flex-1 p-6">
         <Suspense>
-          <IssuesList issues={issues} site={site} />
+          <IssuesList issues={issues} site={site} isAdmin={isAdmin} />
         </Suspense>
       </div>
     </div>
