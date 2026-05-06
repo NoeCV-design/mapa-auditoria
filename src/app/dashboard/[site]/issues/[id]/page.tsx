@@ -76,6 +76,7 @@ const sourceStyles: Record<AuditSource, string> = {
   axe: "text-orange-600 border-orange-200 bg-orange-50",
   lighthouse: "text-red-600 border-red-200 bg-red-50",
   manual: "text-gray-600 border-gray-200 bg-gray-50",
+  heuristic: "text-violet-600 border-violet-200 bg-violet-50",
 };
 
 export default async function IssueDetailPage({
