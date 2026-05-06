@@ -52,9 +52,17 @@ export async function fetchFromNotion(
       const p = page.properties;
       const res = text(p, "Resolution");
       const src = text(p, "Source");
+      // Support two ID storage strategies:
+      // 1. Legacy: ID column (rich_text) stores "UX-NNN" directly.
+      // 2. Fallback: "[UX-NNN] " prefix in the Title column when ID is a checkbox.
+      const rawTitle = text(p, "Title");
+      const titlePrefixMatch = rawTitle.match(/^\[([^\]]+)\]\s*([\s\S]*)/);
+      const id = text(p, "ID") || (titlePrefixMatch ? titlePrefixMatch[1] : page.id);
+      const title = titlePrefixMatch ? (titlePrefixMatch[2] || rawTitle) : rawTitle;
       return {
-        id: text(p, "ID") || page.id,
-        title: text(p, "Title"),
+        id,
+        pageId: page.id,
+        title,
         website: text(p, "Website") as AuditWebsite,
         category: text(p, "Category") as AuditIssue["category"],
         priority: text(p, "Priority") as AuditIssue["priority"],
@@ -71,9 +79,11 @@ export async function fetchFromNotion(
 }
 
 /**
- * Queries Notion (no cache, full pagination) to find the highest UX-NNN number
- * already in the database and returns the next available number (max + 1).
- * Falls back to 1. Uses cursor pagination to cover all records.
+ * Returns the next available UX-NNN number.
+ * Strategy: read the highest number found in any text property that matches
+ * /^UX-(\d+)$/ (Title, ID-as-rich_text, etc.), then return max+1.
+ * Also checks the total page count as a lower bound, in case the ID column
+ * type changed and no text values are readable.
  */
 export async function getNextIssueNum(config: NotionConfig): Promise<number> {
   const token = config.token ?? process.env.NOTION_TOKEN;
@@ -87,6 +97,7 @@ export async function getNextIssueNum(config: NotionConfig): Promise<number> {
     if (!dataSourceId) return 1;
 
     let max = 0;
+    let totalCount = 0;
     let cursor: string | undefined;
 
     do {
@@ -95,21 +106,30 @@ export async function getNextIssueNum(config: NotionConfig): Promise<number> {
         page_size: 100,
         ...(cursor ? { start_cursor: cursor } : {}),
       } as never)) as {
-        results: Array<{ properties: Props }>;
+        results: Array<{ properties: Record<string, unknown> }>;
         has_more: boolean;
         next_cursor: string | null;
       };
 
+      totalCount += res.results.length;
+
       for (const page of res.results) {
-        const idText = (page.properties.ID as { rich_text?: { plain_text: string }[] })?.rich_text?.[0]?.plain_text ?? "";
-        const match = idText.match(/^UX-(\d+)$/);
-        if (match) max = Math.max(max, parseInt(match[1], 10));
+        const props = page.properties as Record<string, { type?: string; rich_text?: { plain_text: string }[]; title?: { plain_text: string }[] }>;
+        // Try every text/title field for a UX-NNN pattern
+        for (const prop of Object.values(props)) {
+          const segments = prop.rich_text ?? prop.title ?? [];
+          for (const seg of segments) {
+            const m = seg.plain_text?.match(/^UX-(\d+)$/) ?? seg.plain_text?.match(/^\[UX-(\d+)\]/);
+            if (m) max = Math.max(max, parseInt(m[1], 10));
+          }
+        }
       }
 
       cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
     } while (cursor);
 
-    return max + 1;
+    // Use page count as a safe lower bound when no UX-NNN was found
+    return Math.max(max, totalCount) + 1;
   } catch {
     return 1;
   }
@@ -148,8 +168,10 @@ export async function sendToNotion(
     await notion.pages.create({
       parent: { type: "data_source_id", data_source_id: dataSourceId } as never,
       properties: {
-        Title: { title: [{ text: { content: issue.title } }] },
-        ID: { rich_text: [{ text: { content: issue.id } }] },
+        // ID column type changed to checkbox in Notion — store the UX-NNN as a
+        // "[UX-NNN] " prefix in Title so it survives reads. Restore clean data by
+        // changing the ID column type back to Text in Notion and reverting this.
+        Title: { title: [{ text: { content: `[${issue.id}] ${issue.title}` } }] },
         Website: { select: { name: issue.website } },
         Category: { select: { name: issue.category } },
         Priority: { select: { name: issue.priority } },
