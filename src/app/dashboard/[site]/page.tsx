@@ -61,7 +61,7 @@ export default async function DashboardPage({
     <div className="flex flex-col flex-1">
       <PageHeader title={config.title} description={`${config.description} · ${issues.length} ${issues.length !== 1 ? "incidencias" : "incidencia"}`}>
         <div className="flex items-center gap-2">
-          <ReloadButton />
+          {isAdmin && <ReloadButton />}
           {isAdmin && !isAggregated && (
             <>
               <Link
